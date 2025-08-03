@@ -1,19 +1,52 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type UpdateUserInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateUser = async (input: UpdateUserInput): Promise<User> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing user in the database.
-    // Should validate that the user exists and handle unique email constraint.
-    // Should update the updated_at timestamp automatically.
-    return Promise.resolve({
-        id: input.id,
-        email: input.email || 'placeholder@example.com',
-        first_name: input.first_name || 'Placeholder',
-        last_name: input.last_name || 'User',
-        role: input.role || 'user',
-        is_active: input.is_active ?? true,
-        created_at: new Date(), // Placeholder date
-        updated_at: new Date() // Placeholder date
-    } as User);
+  try {
+    // First check if the user exists
+    const existingUser = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.id))
+      .execute();
+
+    if (existingUser.length === 0) {
+      throw new Error(`User with id ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date() // Always update the timestamp
+    };
+
+    if (input.email !== undefined) {
+      updateData.email = input.email;
+    }
+    if (input.first_name !== undefined) {
+      updateData.first_name = input.first_name;
+    }
+    if (input.last_name !== undefined) {
+      updateData.last_name = input.last_name;
+    }
+    if (input.role !== undefined) {
+      updateData.role = input.role;
+    }
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
+    // Update the user
+    const result = await db.update(usersTable)
+      .set(updateData)
+      .where(eq(usersTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('User update failed:', error);
+    throw error;
+  }
 };
